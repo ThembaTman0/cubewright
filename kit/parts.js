@@ -1,6 +1,12 @@
 (function (root) {
   const { part, scene, follow, loop } = root.Cubewright;
 
+  if (root.document) {
+    const q = new URLSearchParams(root.location.search);
+    if (q.has("embed")) root.document.documentElement.classList.add("embed");
+    if (q.get("theme")) root.document.documentElement.dataset.theme = q.get("theme");
+  }
+
   function workshop(S) {
     const actors = [];
     const run = (a) => { actors.push(a); return a; };

@@ -25,3 +25,7 @@ footer em { font-style:normal; color:var(--ink); }
 button.theme { all:unset; cursor:pointer; color:var(--soft); font-size:12px; }
 button.theme:hover, button.theme:focus-visible { color:var(--ink); }
 @media (max-width: 560px) { .stage { aspect-ratio: 1/1; } .stats { grid-template-columns: repeat(2, 1fr); } }
+.embed body { background: transparent; }
+.embed main { max-width: none; padding: 0; }
+.embed header, .embed h1, .embed .stats, .embed .lede, .embed footer { display: none; }
+.embed .stage { aspect-ratio: auto; height: 100vh; margin: 0; }
