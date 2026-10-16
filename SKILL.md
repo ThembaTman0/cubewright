@@ -49,6 +49,7 @@ machine({
   build(W) { ...place parts...; return m; },    // runs once, then the view is fitted
   update(dt, m, W) { ... },                     // model step + idle tour
   actions: { stress(m, W) {}, up(m, W) {}, down(m, W) {} },
+  labels: { stress: "Burst requests", up: "…", down: "…" },  // on-screen buttons; phones have no arrow keys
 });
 ```
 

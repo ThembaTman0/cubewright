@@ -87,6 +87,8 @@ machine({
     if (m.pending > 0 && m.belt.ready()) { m.belt.send(W.item({ info: "Request" })); m.pending--; }
   },
 
+  labels: { stress: "Burst requests", up: "Refill faster", down: "Refill slower" },
+
   actions: {
     stress: (m) => { m.pending += 5; m.clock = 10; },
     up: (m) => { m.rate = Math.min(4, m.rate + 0.5); },

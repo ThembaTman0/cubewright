@@ -122,6 +122,8 @@ machine({
     }
   },
 
+  labels: { stress: "Scan 6 keys", up: "More slots", down: "Fewer slots" },
+
   actions: {
     stress: (m) => { m.script.push(2, 3, 4, 5, 6, 7); },
     up: (m) => { m.size = Math.min(6, m.size + 1); },

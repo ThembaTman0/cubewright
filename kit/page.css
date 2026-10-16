@@ -29,3 +29,10 @@ button.theme:hover, button.theme:focus-visible { color:var(--ink); }
 .embed main { max-width: none; padding: 0; }
 .embed header, .embed h1, .embed .stats, .embed .lede, .embed footer { display: none; }
 .embed .stage { aspect-ratio: auto; height: 100vh; margin: 0; }
+.controls { display:flex; flex-wrap:wrap; gap:8px; margin: 4px 0 18px; }
+.controls button { font: 13px/1 inherit; font-family: inherit; color: var(--ink); background: transparent; border: 1px solid var(--hair); border-radius: 999px; padding: 11px 16px; cursor: pointer; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color .15s, background .15s; }
+.controls button:hover, .controls button:focus-visible { border-color: var(--soft); outline: none; }
+.controls button:active { background: var(--hair); }
+.controls button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.controls button.primary:active { filter: brightness(.92); }
+.embed .controls { display: none; }

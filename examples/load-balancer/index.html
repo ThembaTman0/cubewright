@@ -101,6 +101,8 @@ machine({
     if (m.pending > 0 && m.belt.ready()) { m.belt.send(W.item({ info: "Request" })); m.pending--; }
   },
 
+  labels: { stress: "Burst requests", up: "Switch strategy", down: "Fail / restore server 2" },
+
   actions: {
     stress: (m) => { m.pending += 8; m.clock = 10; },
     up: (m) => { m.strategy = (m.strategy + 1) % STRATEGIES.length; },

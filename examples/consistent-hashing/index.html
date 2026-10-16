@@ -132,6 +132,8 @@ machine({
     }
   },
 
+  labels: { stress: "Add server", down: "Remove server" },
+
   actions: {
     stress: (m) => { m.addServer(); m.clock = 8; },
     up: (m) => { m.addServer(); m.clock = 8; },

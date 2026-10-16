@@ -110,6 +110,8 @@ machine({
     if (Math.random() < dt * 1.6 && m.belt.ready()) m.belt.send(W.item({ info: "Request" }));
   },
 
+  labels: { stress: "Break the service", up: "Threshold +1", down: "Threshold −1" },
+
   actions: {
     stress: (m) => { m.healthy = false; m.downFor = 6; m.clock = 16; },
     up: (m) => { m.threshold = Math.min(6, m.threshold + 1); },

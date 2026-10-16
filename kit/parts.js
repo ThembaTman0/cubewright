@@ -198,7 +198,7 @@
     return { S, tick, run, stop, item, vanish, slide, bench, belt, stack, cage, arch, bin, lamp, dial, marks };
   }
 
-  function machine({ canvas = "c", tip = "tip", stats = {}, themeButton = "theme", build, update, actions = {}, pad = 0.06 }) {
+  function machine({ canvas = "c", tip = "tip", stats = {}, themeButton = "theme", build, update, actions = {}, labels = {}, pad = 0.06 }) {
     const el = typeof canvas === "string" ? document.getElementById(canvas) : canvas;
     const tipEl = document.getElementById(tip);
     const statEls = Object.fromEntries(Object.keys(stats).map((k) => [k, document.getElementById(k)]));
@@ -240,6 +240,23 @@
     });
     el.addEventListener("pointerleave", () => { S.hover = null; tipEl && tipEl.classList.remove("on"); });
     el.addEventListener("click", () => act("stress"));
+    const stage = el.closest(".stage");
+    if (stage) {
+      const bar = document.createElement("div");
+      bar.className = "controls";
+      const add = (text, fn, primary) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = text;
+        if (primary) b.className = "primary";
+        b.addEventListener("click", () => { fn(); L.kick(); });
+        bar.appendChild(b);
+      };
+      for (const name of ["stress", "up", "down"]) {
+        if (actions[name] && labels[name]) add(labels[name], () => act(name), name === "stress");
+      }
+      add("Turn ↻", () => S.turn(1));
+      stage.after(bar);
+    }
     const tb = document.getElementById(themeButton);
     if (tb) tb.addEventListener("click", flip);
     el.addEventListener("keydown", (e) => {

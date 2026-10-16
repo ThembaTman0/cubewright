@@ -90,6 +90,8 @@ machine({
     }
   },
 
+  labels: { stress: "Burst", up: "Arrivals faster", down: "Arrivals slower" },
+
   actions: {
     stress: (m) => { m.burst += 8; },
     up: (m) => { m.lambda = Math.min(4, m.lambda + 0.5); },
