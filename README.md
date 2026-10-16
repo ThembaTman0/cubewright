@@ -35,12 +35,20 @@ Controls: **click** burst · **↑ ↓** refill rate · **← →** turn · **T*
 
 ## Machines
 
+| | |
+|---|---|
+| [![Token bucket](docs/gifs/token-bucket.gif)](https://thembatman0.github.io/cubewright/examples/token-bucket/) | [![Load balancer](docs/gifs/load-balancer.gif)](https://thembatman0.github.io/cubewright/examples/load-balancer/) |
+| [![Queue and backpressure](docs/gifs/queue.gif)](https://thembatman0.github.io/cubewright/examples/queue/) | [![LRU cache](docs/gifs/lru-cache.gif)](https://thembatman0.github.io/cubewright/examples/lru-cache/) |
+| [![Consistent hashing](docs/gifs/consistent-hashing.gif)](https://thembatman0.github.io/cubewright/examples/consistent-hashing/) | [![Circuit breaker](docs/gifs/circuit-breaker.gif)](https://thembatman0.github.io/cubewright/examples/circuit-breaker/) |
+
 | # | Machine | Break it by |
 |---|---|---|
 | 01 | [Token bucket](examples/token-bucket/) · rate limiting | Bursting requests until the tower empties and 429s pile up |
 | 02 | [Load balancer](examples/load-balancer/) · round robin vs least busy | Watching round robin overload the slow server, then failing a server |
 | 03 | [Queue & backpressure](examples/queue/) · bounded queues | Raising arrivals above the press's speed until the source overflows |
 | 04 | [LRU cache](examples/lru-cache/) · eviction | Scanning six cold keys so the shelf thrashes |
+| 05 | [Consistent hashing](examples/consistent-hashing/) · sharding | Adding a server and comparing keys moved with `hash % n` |
+| 06 | [Circuit breaker](examples/circuit-breaker/) · fault tolerance | Breaking the service until the breaker trips open |
 
 ## Layout
 
@@ -55,8 +63,7 @@ Controls: **click** burst · **↑ ↓** refill rate · **← →** turn · **T*
 
 ## Roadmap
 
-- More machines: consistent hashing, sharding, replication and quorum, circuit breaker, pub/sub
-- A gallery homepage with live previews
+- More machines: replication and quorum, pub/sub, CDN, write-ahead log
 - Export to `.vox` (MagicaVoxel) and glTF
 - Shareable links and an embeddable web component
 

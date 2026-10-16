@@ -68,6 +68,8 @@ const MACHINES = [
   ["load-balancer", "02", "Load balancer", "Round robin vs least busy. Overload the slow server, then fail one."],
   ["queue", "03", "Queue & backpressure", "A fast producer and a slow press. Watch the pile push back."],
   ["lru-cache", "04", "LRU cache", "Hot keys stay on the shelf. A scan makes it thrash."],
+  ["consistent-hashing", "05", "Consistent hashing", "Add a server: a few keys move on the ring, almost all of them with hash % n."],
+  ["circuit-breaker", "06", "Circuit breaker", "Break the service. The bar drops and failures turn from slow to instant."],
 ];
 const grid = document.getElementById("grid");
 const isDark = () => {

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit Breaker · Cubewright</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect width='10' height='10' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../kit/page.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="mark" href="../../"><i></i>cubewright</a>
+    <button class="theme" id="theme" aria-label="Toggle theme">theme</button>
+  </header>
+  <h1><span class="no">06 </span>Circuit breaker</h1>
+  <div class="stage">
+    <canvas id="c" tabindex="0" aria-label="A voxel circuit breaker: a gate bar that drops across the belt when the service keeps failing. Click to break the service."></canvas>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="stats" aria-live="polite">
+    <div class="stat key"><b id="s-state">closed</b><span>breaker</span></div>
+    <div class="stat"><b id="s-served">0</b><span>served</span></div>
+    <div class="stat"><b id="s-timeouts">0</b><span>slow failures (timeouts)</span></div>
+    <div class="stat"><b id="s-fast">0</b><span>fast failures</span></div>
+  </div>
+  <p class="lede">When a service goes down, every request to it hangs until it times out, which ties up callers and piles more load on a struggling system. After three failures in a row the breaker trips: the bar drops, and requests fail instantly instead of waiting. After a cooldown it goes half-open and lets one trial request through. If the trial succeeds, the bar lifts. If it fails, the bar drops again.</p>
+  <footer>
+    <span><em>click</em> break the service</span><span><em>↑ ↓</em> failure threshold</span><span><em>← →</em> turn</span><span><em>hover</em> name a part</span>
+  </footer>
+</main>
+<script src="../../kit/cubewright.js"></script>
+<script src="../../kit/parts.js"></script>
+<script>
+const { machine, part } = Cubewright;
+const BAR_Z = { closed: 11, open: 5, "half-open": 8 };
+
+machine({
+  stats: {
+    "s-state": (m) => m.state,
+    "s-served": (m) => m.served,
+    "s-timeouts": (m) => m.timeouts,
+    "s-fast": (m) => m.fast,
+  },
+
+  build(W) {
+    const m = {
+      state: "closed", streak: 0, threshold: 3, cooldown: 0, trial: false,
+      healthy: true, downFor: 0, clock: 7, served: 0, timeouts: 0, fast: 0, inflight: [],
+    };
+
+    W.bench({ w: 44, d: 22 });
+    m.belt = W.belt({ y: 8, length: 18, stopAt: 18, speed: 8, info: "Callers · requests to the service" });
+    W.arch({ x: 18, y: 7, span: 6, h: 10, info: "Breaker frame" });
+    m.bar = W.S.add(part("bar", "Breaker bar · up when closed, down when open"));
+    m.bar.box(0, 0, 0, 1, 6, 1, "accent");
+    m.bar.at = [17, 7, BAR_Z.closed];
+
+    W.cage({ x: 30, y: 6, w: 8, d: 8, h: 10, info: "Service · sometimes goes down" });
+    m.core = W.S.add(part("core", "Service core"));
+    m.core.box(32, 8, 2, 4, 4, 4, "hi");
+    m.up = W.lamp({ x: 34, y: 5, z: 1, tone: "ok", info: "Service healthy", decay: 0.001 });
+    m.down = W.lamp({ x: 32, y: 5, z: 1, tone: "bad", info: "Service down", decay: 0.001 });
+    m.done = W.bin({ x: 38, y: 15, w: 6, d: 6, h: 3, info: "Served" });
+    m.slow = W.bin({ x: 28, y: 16, w: 8, d: 5, h: 2, info: "Timed out · waited, then failed" });
+    m.quick = W.bin({ x: 14, y: 15, w: 8, d: 5, h: 2, info: "Failed fast · rejected by the open breaker" });
+
+    m.belt.onArrive = (it) => {
+      m.belt.take(it);
+      if (m.state === "open" || (m.state === "half-open" && m.trial)) {
+        m.fast++;
+        m.quick.receive(it);
+        return;
+      }
+      if (m.state === "half-open") m.trial = true;
+      W.slide(it, [27, 8.5, 2], {
+        rate: 6,
+        then: () => m.inflight.push({ it, t: 0, need: m.healthy ? 0.35 : 1.6, ok: m.healthy }),
+      });
+    };
+    return m;
+  },
+
+  update(dt, m, W) {
+    if (!m.healthy) { m.downFor -= dt; if (m.downFor <= 0) m.healthy = true; }
+    m.clock -= dt;
+    if (m.clock <= 0 && m.healthy) { m.healthy = false; m.downFor = 6; m.clock = 16; }
+    m.up.part.glow = m.healthy ? 0.9 : 0;
+    m.down.part.glow = m.healthy ? 0 : 0.9;
+    m.core.alpha = m.healthy ? 1 : 0.45;
+
+    for (const f of m.inflight.slice()) {
+      f.t += dt;
+      if (f.t < f.need) continue;
+      m.inflight.splice(m.inflight.indexOf(f), 1);
+      if (f.ok) {
+        m.served++; m.streak = 0;
+        if (m.state === "half-open") { m.state = "closed"; m.trial = false; }
+        W.slide(f.it, [39.5, 16.5, 2], { rate: 6, then: () => m.done.receive(f.it) });
+      } else {
+        m.timeouts++; m.streak++;
+        m.slow.receive(f.it);
+        if (m.state === "half-open" || m.streak >= m.threshold) { m.state = "open"; m.cooldown = 4; m.trial = false; }
+      }
+    }
+
+    if (m.state === "open") { m.cooldown -= dt; if (m.cooldown <= 0) { m.state = "half-open"; m.trial = false; } }
+    m.bar.at[2] = Cubewright.follow(m.bar.at[2], BAR_Z[m.state], dt, 10);
+
+    if (Math.random() < dt * 1.6 && m.belt.ready()) m.belt.send(W.item({ info: "Request" }));
+  },
+
+  actions: {
+    stress: (m) => { m.healthy = false; m.downFor = 6; m.clock = 16; },
+    up: (m) => { m.threshold = Math.min(6, m.threshold + 1); },
+    down: (m) => { m.threshold = Math.max(1, m.threshold - 1); },
+  },
+});
+</script>
+</body>
+</html>

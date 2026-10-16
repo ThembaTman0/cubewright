@@ -254,6 +254,22 @@
       if (done) { e.preventDefault(); L.kick(); }
     });
     document.addEventListener("keydown", (e) => { if (e.target === document.body && e.key.startsWith("Arrow")) el.focus(); });
+    const rec = new URLSearchParams(location.search).get("record");
+    if (rec) record(rec);
+    function record(slug, { frames = 72, every = 90, stressAt = 18, width = 640 } = {}) {
+      const out = document.createElement("canvas");
+      const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#f3f2ef";
+      let n = 0;
+      setTimeout(function grab() {
+        if (n === stressAt) act("stress");
+        out.width = width; out.height = Math.round((el.height / el.width) * width);
+        const g = out.getContext("2d");
+        g.fillStyle = bg; g.fillRect(0, 0, out.width, out.height);
+        g.drawImage(el, 0, 0, out.width, out.height);
+        fetch(`/__frames/${slug}/${n}`, { method: "POST", body: out.toDataURL("image/png") });
+        if (++n < frames) setTimeout(grab, every); else document.title = "recorded " + slug;
+      }, 1200);
+    }
     return { S, W, model, render };
   }
 

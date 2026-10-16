@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consistent Hashing · Cubewright</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect width='10' height='10' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../kit/page.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="mark" href="../../"><i></i>cubewright</a>
+    <button class="theme" id="theme" aria-label="Toggle theme">theme</button>
+  </header>
+  <h1><span class="no">05 </span>Consistent hashing</h1>
+  <div class="stage">
+    <canvas id="c" tabindex="0" aria-label="A voxel hash ring with keys coloured by the server that owns them. Click to add a server."></canvas>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="stats" aria-live="polite">
+    <div class="stat key"><b id="s-moved">0</b><span>keys moved (ring)</span></div>
+    <div class="stat"><b id="s-modulo">0</b><span>would move with hash % n</span></div>
+    <div class="stat"><b id="s-servers">3</b><span>servers</span></div>
+    <div class="stat"><b id="s-keys">36</b><span>keys</span></div>
+  </div>
+  <p class="lede">Keys and servers are hashed onto the same ring. Each key belongs to the first server clockwise from it, and takes that server's colour. Add a server and only the keys in the arc it takes over change colour. With plain <code>hash % n</code>, changing the number of servers reshuffles almost every key, so almost every cache misses at once.</p>
+  <footer>
+    <span><em>click / ↑</em> add a server</span><span><em>↓</em> remove one</span><span><em>← →</em> turn</span><span><em>hover</em> name a part</span>
+  </footer>
+</main>
+<script src="../../kit/cubewright.js"></script>
+<script src="../../kit/parts.js"></script>
+<script>
+const { machine, part } = Cubewright;
+const COLORS = ["#ff6b3d", "#3b82f6", "#22a06b", "#e2b007", "#8b5cf6", "#ec4899"];
+const C = 16, R = 11.5, TAU = Math.PI * 2;
+const KEYS = 36;
+
+const onRing = (t, r) => [C + r * Math.cos(t * TAU), C + r * Math.sin(t * TAU)];
+const hashOf = (i) => (Math.imul(i + 1, 2654435761) >>> 0);
+
+machine({
+  stats: {
+    "s-moved": (m) => m.moved,
+    "s-modulo": (m) => m.modulo,
+    "s-servers": (m) => m.servers.length,
+    "s-keys": () => KEYS,
+  },
+
+  build(W) {
+    const m = { servers: [], keys: [], moved: 0, modulo: 0, clock: 5, grow: true, nextColor: 0 };
+
+    W.bench({ w: 32, d: 32 });
+    const ring = W.S.add(part("ring", "Hash ring · 0 to 2³² wrapped into a circle"));
+    for (let x = 0; x < 32; x++) for (let y = 0; y < 32; y++) {
+      const d = Math.hypot(x + 0.5 - C, y + 0.5 - C);
+      if (d > 10.4 && d < 12.6) ring.set(x, y, 1, "base");
+    }
+    const zero = onRing(0, R);
+    W.marks({ x: Math.floor(zero[0]), y: Math.floor(zero[1]), z: 2, count: 1, tone: "mid", info: "Position 0 · keys run clockwise from here" });
+
+    for (let i = 0; i < KEYS; i++) {
+      const t = (i * 0.6180339887 + 0.03) % 1;
+      const [x, y] = onRing(t, R);
+      const p = W.S.add(part("key", `Key ${i + 1}`));
+      p.at = [Math.floor(x), Math.floor(y), 2];
+      m.keys.push({ i, t, p, owner: null });
+    }
+
+    m.addServer = (t) => {
+      if (m.servers.length >= COLORS.length) return;
+      if (t == null) {
+        let best = 0, gap = -1;
+        for (let k = 0; k < 24; k++) {
+          const c = (k + Math.random()) / 24;
+          const g = Math.min(...m.servers.map((s) => Math.min(Math.abs(s.t - c), 1 - Math.abs(s.t - c))), 1);
+          if (g > gap) { gap = g; best = c; }
+        }
+        t = best;
+      }
+      const used = new Set(m.servers.map((s) => s.color));
+      const color = COLORS.find((c) => !used.has(c));
+      const [x, y] = onRing(t, R + 3.2);
+      const p = W.S.add(part("server", `Server · owns the arc counter-clockwise up to here`));
+      p.box(0, 0, 0, 2, 2, 1, "mid").box(0, 0, 1, 2, 2, 5, color);
+      p.at = [Math.floor(x) - 0.5, Math.floor(y) - 0.5, 1];
+      p.alpha = 0;
+      W.run({ update(dt) { p.alpha = Math.min(1, p.alpha + dt * 3); if (p.alpha >= 1) W.stop(this); } });
+      m.servers.push({ t, color, p });
+      m.assign();
+    };
+
+    m.removeServer = () => {
+      if (m.servers.length <= 2) return;
+      const s = m.servers.splice(Math.floor(Math.random() * m.servers.length), 1)[0];
+      W.vanish(s.p, { rate: 3 });
+      m.assign();
+    };
+
+    m.assign = () => {
+      const sorted = m.servers.slice().sort((a, b) => a.t - b.t);
+      const n = m.servers.length;
+      let moved = 0, modulo = 0;
+      for (const k of m.keys) {
+        const owner = sorted.find((s) => s.t >= k.t) || sorted[0];
+        if (k.owner && k.owner !== owner) moved++;
+        if (k.n && hashOf(k.i) % k.n !== hashOf(k.i) % n) modulo++;
+        const changed = k.owner !== owner;
+        k.owner = owner; k.n = n;
+        if (changed) {
+          k.p.clear(); k.p.box(0, 0, 0, 1, 1, 2, owner.color);
+          let t = 0;
+          W.run({ update(dt) { t += dt * 3; k.p.at[2] = 2 + Math.sin(Math.min(1, t) * Math.PI) * 2; if (t >= 1) { k.p.at[2] = 2; W.stop(this); } } });
+        }
+      }
+      if (moved || modulo) { m.moved = moved; m.modulo = modulo; }
+    };
+
+    m.addServer(0.12); m.addServer(0.45); m.addServer(0.76);
+    m.moved = 0; m.modulo = 0;
+    return m;
+  },
+
+  update(dt, m) {
+    m.clock -= dt;
+    if (m.clock <= 0) {
+      if (m.servers.length >= 5) m.grow = false;
+      if (m.servers.length <= 3) m.grow = true;
+      m.grow ? m.addServer() : m.removeServer();
+      m.clock = 5;
+    }
+  },
+
+  actions: {
+    stress: (m) => { m.addServer(); m.clock = 8; },
+    up: (m) => { m.addServer(); m.clock = 8; },
+    down: (m) => { m.removeServer(); m.clock = 8; },
+  },
+});
+</script>
+</body>
+</html>
