@@ -9,7 +9,7 @@ compatibility: Any agent that can write files. Needs a browser to view; Node.js 
 
 Cubewright builds ideas as little cube machines you can play with. A reader learns the concept by watching it run, then pushing it until it breaks.
 
-The kit has three files and no dependencies. `kit/cubewright.js` is the renderer and exposes `window.Cubewright`. `kit/parts.js` holds ready-made machine parts with built-in motion, plus `machine()`, which wires up the page. `kit/page.css` is the shared page style. The reference is `examples/token-bucket/index.html`: a rate limiter in about 60 lines of machine code. Copy it as the starting point for every new figure.
+The kit has three files and no dependencies. `kit/cubewright.js` is the renderer and exposes `window.Cubewright`. `kit/parts.js` holds ready-made machine parts with built-in motion, plus `machine()`, which wires up the page. `kit/page.css` is the shared page style. The reference is `examples/token-bucket/index.html`: a rate limiter in about 60 lines of machine code. Copy it as the starting point for every new figure. There are three more examples. `examples/load-balancer/` routes to several stations and has a strategy toggle and a failure switch. `examples/queue/` shows a bounded belt, a timed worker (the press ram) and backpressure into a source pile. `examples/lru-cache/` shows ordered slots that re-sort with `W.slide`, coloured keys (raw hex tones) and a slow fetch. Open the one closest to your concept before you start.
 
 **Assemble, don't hand-code.** Build every figure from the parts below. Write a raw `part()` only for a one-off static shape, such as a tap's housing. If a mechanism is missing and would recur in other machines, add it to `kit/parts.js` rather than to the page.
 

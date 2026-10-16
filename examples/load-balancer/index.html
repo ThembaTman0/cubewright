@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Load Balancer · Cubewright</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect width='10' height='10' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../kit/page.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="mark" href="../../"><i></i>cubewright</a>
+    <button class="theme" id="theme" aria-label="Toggle theme">theme</button>
+  </header>
+  <h1><span class="no">02 </span>Load balancer</h1>
+  <div class="stage">
+    <canvas id="c" tabindex="0" aria-label="A voxel load balancer sending requests to three servers of different speeds. Click to send a burst."></canvas>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="stats" aria-live="polite">
+    <div class="stat key"><b id="s-strategy">–</b><span>strategy</span></div>
+    <div class="stat"><b id="s-load">–</b><span>jobs per server</span></div>
+    <div class="stat"><b id="s-served">0</b><span>served</span></div>
+    <div class="stat"><b id="s-dropped">0</b><span>dropped</span></div>
+  </div>
+  <p class="lede">Three servers, three speeds: fast, medium and slow. Round robin deals requests out evenly, so the slow server fills up and starts dropping work while the fast one sits idle. Switch to least busy and the dispatcher sends each request to the server with the shortest pile. Then fail a server and watch the others absorb its traffic.</p>
+  <footer>
+    <span><em>click</em> burst</span><span><em>↑</em> switch strategy</span><span><em>↓</em> fail / restore server 2</span><span><em>← →</em> turn</span><span><em>hover</em> name a part</span>
+  </footer>
+</main>
+<script src="../../kit/cubewright.js"></script>
+<script src="../../kit/parts.js"></script>
+<script>
+const { machine } = Cubewright;
+const STRATEGIES = ["round robin", "least busy"];
+
+machine({
+  stats: {
+    "s-strategy": (m) => STRATEGIES[m.strategy],
+    "s-load": (m) => m.servers.map((s) => (s.up ? s.st.count : "×")).join(" · "),
+    "s-served": (m) => m.served,
+    "s-dropped": (m) => m.dropped,
+  },
+
+  build(W) {
+    const m = { strategy: 0, rr: 0, served: 0, dropped: 0, pending: 0, clock: 4, servers: [] };
+
+    W.bench({ w: 44, d: 30 });
+    m.belt = W.belt({ y: 13, length: 16, stopAt: 16, info: "Belt · incoming requests" });
+    W.arch({ x: 16, y: 12, span: 6, h: 7, info: "Dispatcher · picks a server for each request" });
+    m.tray = W.bin({ x: 17, y: 23, w: 8, d: 5, h: 2, info: "Dropped · the chosen server was full or down" });
+
+    [[2.2, 2, "fast"], [1.1, 12, "medium"], [0.5, 22, "slow"]].forEach(([rate, y, label], i) => {
+      const x = 32;
+      const cage = W.cage({ x, y, w: 6, d: 6, h: 14, info: `Server ${i + 1} · ${label}, ${rate} jobs/s` });
+      const st = W.stack({ x: x + 1, y: y + 1, z: 2, cap: 5, dropFrom: 16, info: `Job on server ${i + 1}` });
+      const lamp = W.lamp({ x: x - 2, y: y + 2, z: 1, tone: "ok", info: `Server ${i + 1} finished a job` });
+      m.servers.push({ x, y, rate, cage, st, lamp, t: 0, up: true, inbound: 0 });
+    });
+
+    const load = (s) => s.st.count + s.inbound;
+    const pick = () => {
+      const alive = m.servers.filter((s) => s.up);
+      if (!alive.length) return null;
+      if (m.strategy === 0) {
+        for (let k = 0; k < m.servers.length; k++) {
+          const s = m.servers[m.rr++ % m.servers.length];
+          if (s.up) return s;
+        }
+      }
+      return alive.reduce((a, b) => (load(b) / b.rate < load(a) / a.rate ? b : a));
+    };
+
+    m.belt.onArrive = (it) => {
+      m.belt.take(it);
+      const s = pick();
+      if (!s || load(s) >= s.st.cap) { m.dropped++; m.tray.receive(it); return; }
+      s.inbound++;
+      W.slide(it, [s.x - 3, s.y + 1.5, 2], {
+        rate: 5,
+        then: () => {
+          s.inbound--;
+          W.vanish(it, { rate: 4 });
+          if (s.up && s.st.count < s.st.cap) s.st.push(); else m.dropped++;
+        },
+      });
+    };
+    return m;
+  },
+
+  update(dt, m, W) {
+    for (const s of m.servers) {
+      if (!s.up || !s.st.count) { s.t = 0; continue; }
+      s.t += dt * s.rate;
+      if (s.t >= 1) { s.t -= 1; s.st.pop(); m.served++; s.lamp.flash(); }
+    }
+    m.clock -= dt;
+    if (Math.random() < dt * 2.6) m.pending++;
+    if (m.clock <= 0) { m.pending += 6; m.clock = 8 + Math.random() * 4; }
+    if (m.pending > 0 && m.belt.ready()) { m.belt.send(W.item({ info: "Request" })); m.pending--; }
+  },
+
+  actions: {
+    stress: (m) => { m.pending += 8; m.clock = 10; },
+    up: (m) => { m.strategy = (m.strategy + 1) % STRATEGIES.length; },
+    down: (m) => {
+      const s = m.servers[1];
+      s.up = !s.up;
+      s.cage.alpha = s.up ? 1 : 0.3;
+      if (!s.up) while (s.st.count) { s.st.pop(); m.dropped++; }
+    },
+  },
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LRU Cache · Cubewright</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect width='10' height='10' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../kit/page.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="mark" href="../../"><i></i>cubewright</a>
+    <button class="theme" id="theme" aria-label="Toggle theme">theme</button>
+  </header>
+  <h1><span class="no">04 </span>LRU cache</h1>
+  <div class="stage">
+    <canvas id="c" tabindex="0" aria-label="A voxel LRU cache: a short shelf of coloured keys beside a far warehouse. Click to run a scan."></canvas>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="stats" aria-live="polite">
+    <div class="stat key"><b id="s-rate">–</b><span>hit rate</span></div>
+    <div class="stat"><b id="s-hits">0</b><span>hits · misses</span></div>
+    <div class="stat"><b id="s-size">4</b><span>shelf slots</span></div>
+    <div class="stat"><b id="s-evicted">0</b><span>evicted</span></div>
+  </div>
+  <p class="lede">Each colour is a key. Hits are served straight from the shelf, and the key moves to the front because it was used most recently. A miss makes a slow trip to the warehouse; the fetched key goes in front, and the least recently used key at the far end falls off. Popular keys stay, so the hit rate is high. A scan of many different keys pushes them all out, and the cache thrashes.</p>
+  <footer>
+    <span><em>click</em> scan 6 keys</span><span><em>↑ ↓</em> shelf slots</span><span><em>← →</em> turn</span><span><em>hover</em> name a part</span>
+  </footer>
+</main>
+<script src="../../kit/cubewright.js"></script>
+<script src="../../kit/parts.js"></script>
+<script>
+const { machine, part } = Cubewright;
+const KEYS = ["#ff6b3d", "#3b82f6", "#22a06b", "#e2b007", "#8b5cf6", "#ec4899", "#14b8a6", "#64748b"];
+const NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"];
+const WEIGHTS = [6, 4, 3, 2, 1, 1, 0.5, 0.5];
+
+machine({
+  stats: {
+    "s-rate": (m) => (m.hits + m.misses ? Math.round((100 * m.hits) / (m.hits + m.misses)) + "%" : "–"),
+    "s-hits": (m) => `${m.hits} · ${m.misses}`,
+    "s-size": (m) => m.size,
+    "s-evicted": (m) => m.evicted,
+  },
+
+  build(W) {
+    const m = { size: 4, hits: 0, misses: 0, evicted: 0, cache: [], script: [], busy: false };
+
+    W.bench({ w: 46, d: 22 });
+    const shelf = W.S.add(part("shelf", "Cache shelf · front is most recently used"));
+    shelf.box(13, 2, 1, 26, 5, 1, "base");
+    for (const x of [13, 38]) shelf.box(x, 2, 2, 1, 1, 4, "mid");
+    shelf.box(13, 2, 6, 26, 1, 1, "mid");
+    W.marks({ x: 13, y: 7, z: 1, count: 1, info: "Front · most recent" });
+    W.marks({ x: 38, y: 7, z: 1, count: 1, info: "Back · least recent, evicted next" });
+
+    W.cage({ x: 40, y: 10, w: 6, d: 10, h: 12, info: "Warehouse · slow storage (the database)" });
+    const store = W.S.add(part("store", "Every key lives here"));
+    KEYS.forEach((c, i) => store.box(41 + (i % 2) * 2, 11 + Math.floor(i / 2) * 2, 2, 2, 2, 1, c));
+
+    m.belt = W.belt({ y: 12, length: 12, stopAt: 12, info: "Requests · each asks for one key" });
+    W.arch({ x: 12, y: 11, span: 6, h: 7, info: "Lookup · checks the shelf first" });
+    m.hitLamp = W.lamp({ x: 12, y: 13, z: 9, tone: "ok", info: "Hit" });
+    m.missLamp = W.lamp({ x: 12, y: 15, z: 9, tone: "bad", info: "Miss" });
+
+    m.slot = (i) => [14 + 4 * i, 3, 2];
+    m.place = () => m.cache.forEach((b, i) => {
+      if (b.mover) W.stop(b.mover);
+      b.mover = W.slide(b.part, m.slot(i), { rate: 6 });
+    });
+    m.evict = () => {
+      while (m.cache.length > m.size) {
+        const b = m.cache.pop();
+        if (b.mover) W.stop(b.mover);
+        m.evicted++;
+        W.slide(b.part, [b.part.at[0], 9, 1], { rate: 5, then: (p) => W.vanish(p, { rate: 2 }) });
+      }
+    };
+
+    m.belt.onArrive = (req) => {
+      const key = req.key;
+      const at = m.cache.findIndex((b) => b.key === key);
+      if (at >= 0) {
+        m.hits++; m.hitLamp.flash();
+        m.cache.unshift(m.cache.splice(at, 1)[0]);
+        m.place();
+        m.belt.take(req);
+        W.vanish(req, { rate: 3 });
+        return;
+      }
+      m.misses++; m.missLamp.flash();
+      const p = W.item({ size: 3, tone: KEYS[key], info: `Key ${NAMES[key]}` });
+      p.at = [41, 13, 2];
+      const b = { key, part: p, mover: null };
+      m.cache.unshift(b);
+      m.evict();
+      m.cache.slice(1).forEach((c, i) => { if (c.mover) W.stop(c.mover); c.mover = W.slide(c.part, m.slot(i + 1), { rate: 6 }); });
+      b.mover = W.slide(p, m.slot(0), {
+        rate: 3,
+        then: () => { b.mover = null; m.belt.take(req); W.vanish(req, { rate: 3 }); },
+      });
+    };
+    return m;
+  },
+
+  update(dt, m, W) {
+    const want = m.script.length ? null : (Math.random() < dt * 1.4 ? draw() : null);
+    const next = m.script.length ? m.script[0] : want;
+    if (next != null && m.belt.ready() && m.belt.queued < 4) {
+      if (m.script.length) m.script.shift();
+      const r = W.item({ tone: KEYS[next], info: `Request for key ${NAMES[next]}` });
+      r.key = next;
+      m.belt.send(r);
+    }
+    function draw() {
+      const total = WEIGHTS.reduce((a, b) => a + b, 0);
+      let x = Math.random() * total;
+      for (let i = 0; i < WEIGHTS.length; i++) { x -= WEIGHTS[i]; if (x <= 0) return i; }
+      return 0;
+    }
+  },
+
+  actions: {
+    stress: (m) => { m.script.push(2, 3, 4, 5, 6, 7); },
+    up: (m) => { m.size = Math.min(6, m.size + 1); },
+    down: (m) => { m.size = Math.max(2, m.size - 1); m.evict(); m.place(); },
+  },
+});
+</script>
+</body>
+</html>

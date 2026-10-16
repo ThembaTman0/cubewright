@@ -31,6 +31,15 @@ Open `http://localhost:4317/examples/token-bucket/`.
 
 Controls: **click** burst · **↑ ↓** refill rate · **← →** turn · **T** theme · **hover** name a part.
 
+## Machines
+
+| # | Machine | Break it by |
+|---|---|---|
+| 01 | [Token bucket](examples/token-bucket/) · rate limiting | Bursting requests until the tower empties and 429s pile up |
+| 02 | [Load balancer](examples/load-balancer/) · round robin vs least busy | Watching round robin overload the slow server, then failing a server |
+| 03 | [Queue & backpressure](examples/queue/) · bounded queues | Raising arrivals above the press's speed until the source overflows |
+| 04 | [LRU cache](examples/lru-cache/) · eviction | Scanning six cold keys so the shelf thrashes |
+
 ## Layout
 
 | Path | What |
@@ -44,7 +53,8 @@ Controls: **click** burst · **↑ ↓** refill rate · **← →** turn · **T*
 
 ## Roadmap
 
-- More machines: hash map, queue and backpressure, LRU cache, load balancer
+- More machines: consistent hashing, sharding, replication and quorum, circuit breaker, pub/sub
+- A gallery homepage with live previews
 - Export to `.vox` (MagicaVoxel) and glTF
 - Shareable links and an embeddable web component
 
