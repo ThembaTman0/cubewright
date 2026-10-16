@@ -10,7 +10,7 @@ Cubewright is an agent skill (Claude Code and other agents that read `SKILL.md`)
 
 - **Playable.** Every figure has an action that stresses the system, so the reader *causes* the interesting failure.
 - **True.** A small real model drives the motion and the numbers. Nothing is decorative.
-- **Fast and light.** A ~230-line canvas kit with no dependencies, no build step and no framework.
+- **Fast and light.** A small canvas kit plus a parts library (a machine is ~60 lines), with no dependencies, no build step and no framework.
 - **Quiet.** Clean, minimal styling: warm neutrals, one accent, light and dark themes.
 
 ## Install
@@ -37,6 +37,8 @@ Controls: **click** burst · **↑ ↓** refill rate · **← →** turn · **T*
 |---|---|
 | `SKILL.md` | The skill: principles, workflow, kit API, style rules |
 | `kit/cubewright.js` | The renderer: voxel parts, isometric camera, culling, shading, picking, turning, motion loop |
+| `kit/parts.js` | Machine parts with built-in motion (belt, stack, bin, lamp, gate, dial…) and `machine()`, which wires the page |
+| `kit/page.css` | The shared, minimal page style |
 | `examples/` | Finished machines to copy from |
 | `scripts/serve.mjs` | A tiny local preview server |
 

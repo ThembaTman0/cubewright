@@ -9,7 +9,9 @@ compatibility: Any agent that can write files. Needs a browser to view; Node.js 
 
 Cubewright builds ideas as little cube machines you can play with. A reader learns the concept by watching it run, then pushing it until it breaks.
 
-The kit is `kit/cubewright.js`: one classic script with no dependencies, which exposes `window.Cubewright`. The reference is `examples/token-bucket/index.html`, a rate limiter with a tap dripping tokens into a tower while requests ride a belt through a gate. Open it first and copy its page structure.
+The kit has three files and no dependencies. `kit/cubewright.js` is the renderer and exposes `window.Cubewright`. `kit/parts.js` holds ready-made machine parts with built-in motion, plus `machine()`, which wires up the page. `kit/page.css` is the shared page style. The reference is `examples/token-bucket/index.html`: a rate limiter in about 60 lines of machine code. Copy it as the starting point for every new figure.
+
+**Assemble, don't hand-code.** Build every figure from the parts below. Write a raw `part()` only for a one-off static shape, such as a tap's housing. If a mechanism is missing and would recur in other machines, add it to `kit/parts.js` rather than to the page.
 
 ## Principles
 
@@ -34,12 +36,38 @@ The kit is `kit/cubewright.js`: one classic script with no dependencies, which e
 2. **Machine.** Say in one sentence what moves and what that motion means, then name the stress action.
 3. **Parts (15–40).** Name a bench, the structure, the mechanism, one or two signals (`ok`/`bad`) and the subject, which is the only `accent` part. Each part sits on another part. Prefer fewer, cleaner parts over ornament.
 4. **Grid plan.** 1 unit = 1 voxel, x and y on the floor, z up, about 30–50 units wide. Put the coordinates in constants (`GATE_X`, `BELT_Y`) before placing anything.
-5. **Build.** One `part(name, info)` per meaningful thing; `info` is the hover name (empty means not pickable). Build static parts once and call `S.fit()`. Moving parts are built at the origin and moved with `.at`. Rebuild only shape-changing parts (a belt) per frame.
-6. **Page.** Use the example's layout: the wordmark and a theme link, a numbered title (`01 Token bucket`), the stage, a stats row (the first stat in the accent colour), a short lede, and a footer of controls.
-7. **Live.** `loop()` runs an idle tour so it moves untouched. Ease with `follow()`. Turn the view with ←→, toggle the theme with `T` or the theme link, and give stats `aria-live`.
+5. **Build.** In `machine({ build })`, place parts from the workshop `W` and return the model `m`. Wire events between parts (`belt.onArrive`, `stack.pop`, `lamp.flash`, `bin.receive`). Every part takes an `info` string, which is its hover name.
+6. **Page.** Copy the example page. Keep its layout (wordmark and theme link, numbered title, stage, stats row with the first stat in the accent colour, lede, footer of controls), and change only the title, the stats, the lede and the script.
+7. **Live.** `update(dt, m, W)` advances the model and runs an idle tour so the machine moves untouched. `actions.stress` (click, Space, Enter), `actions.up` and `actions.down` (↑↓) are the reader's controls. `machine()` already handles turning (←→), the theme (`T`), hover tooltips, reduced motion and pausing offscreen.
 8. **Verify.** Run `node scripts/serve.mjs`, then check the default view, a turned view, both themes, a stressed moment and phone width (390px). Check the stats against the model by hand, and make sure the console has no errors.
 
-## Kit API
+## Parts (`kit/parts.js`)
+
+```js
+machine({
+  stats: { "s-id": (m) => value },              // element id → text, updated every frame
+  build(W) { ...place parts...; return m; },    // runs once, then the view is fitted
+  update(dt, m, W) { ... },                     // model step + idle tour
+  actions: { stress(m, W) {}, up(m, W) {}, down(m, W) {} },
+});
+```
+
+| Part | Call | Behaviour |
+|---|---|---|
+| Bench | `W.bench({ w, d })` | Floor plate on four feet |
+| Belt | `B = W.belt({ y, length, stopAt?, speed?, width? })` | `B.send(item)`, `B.ready()`, `B.take(item)`, `B.onArrive = (item) => …`, `B.queued`. Items queue up behind a stopped one, which is how backpressure shows. |
+| Item | `W.item({ size?, tone?, info? })` | A cube to carry (request, packet, key) |
+| Stack | `St = W.stack({ x, y, z, cap, dropFrom? })` | `St.push()` (falls from above), `St.pop(to?)` (bottom unit leaves and shrinks, the rest fall), `St.fill(n)`, `St.count` |
+| Bin | `Bn = W.bin({ x, y, w, d, h })` | `Bn.receive(item)` slides it in, sinks it and fades it. `Bn.count` |
+| Lamp | `L = W.lamp({ x, y, z, tone: "ok" or "bad" })` | `L.flash()` glows, then decays |
+| Cage | `W.cage({ x, y, w, d, h })` | An open frame tower with a floor, for containers |
+| Arch | `W.arch({ x, y, span, h })` | A gate over a belt |
+| Dial | `D = W.dial({ x, y, z })` | `D.set(0..1)` moves an accent mark around the rim, for timers and phases |
+| Marks | `W.marks({ x, y, z, count })` | A column of level marks |
+| Motion | `W.slide(p, [x,y,z], { rate, then })`, `W.vanish(p, { shrink, sink })` | Eased moves and exits for anything |
+| Custom | `W.run({ update(dt) {} })`, `W.S` | Add your own per-frame behaviour, or a raw scene part |
+
+## Kit API (low level)
 
 ```js
 const { part, scene, follow, loop, THEMES } = Cubewright;

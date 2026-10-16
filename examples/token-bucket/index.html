@@ -5,40 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Token Bucket · Cubewright</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect width='10' height='10' fill='%23ff6b3d'/%3E%3C/svg%3E">
-<style>
-  :root { --bg:#f3f2ef; --ink:#26262a; --soft:#8a8882; --hair:#e2e0db; --accent:#ff6b3d; --tip:#26262a; --tipink:#f6f5f2; }
-  :root[data-theme="dark"] { --bg:#141416; --ink:#ecebe7; --soft:#7d7c78; --hair:#262629; --accent:#ff7a4d; --tip:#ecebe7; --tipink:#141416; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141416; --ink:#ecebe7; --soft:#7d7c78; --hair:#262629; --accent:#ff7a4d; --tip:#ecebe7; --tipink:#141416; } }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing:antialiased; }
-  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 56px; }
-  header { display:flex; align-items:baseline; justify-content:space-between; gap:16px; }
-  .mark { font-weight:600; letter-spacing:-0.01em; }
-  .mark i { display:inline-block; width:9px; height:9px; background:var(--accent); margin-right:8px; transform: translateY(-1px); }
-  .no { color:var(--soft); font-variant-numeric: tabular-nums; }
-  h1 { font-size: clamp(28px, 5vw, 40px); font-weight:500; letter-spacing:-0.03em; line-height:1.1; margin: 28px 0 0; }
-  .stage { position:relative; aspect-ratio: 16/10; margin-top: 8px; }
-  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; outline:none; cursor:pointer; touch-action: manipulation; }
-  canvas:focus-visible { box-shadow: 0 0 0 1px var(--hair); border-radius: 12px; }
-  .tip { position:absolute; pointer-events:none; background:var(--tip); color:var(--tipink); font-size:12px; padding:5px 9px; border-radius:999px; white-space:nowrap; opacity:0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity .15s; }
-  .tip.on { opacity:1; }
-  .stats { display:grid; grid-template-columns: repeat(4, 1fr); border-top:1px solid var(--hair); }
-  .stat { padding: 14px 0 0; }
-  .stat b { display:block; font-size: 24px; font-weight:500; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; }
-  .stat span { color:var(--soft); font-size:12px; }
-  .stat.key b { color:var(--accent); }
-  p.lede { color:var(--soft); max-width: 60ch; margin: 28px 0 0; }
-  footer { display:flex; flex-wrap:wrap; gap: 6px 18px; color:var(--soft); font-size:12px; margin-top: 18px; }
-  footer em { font-style:normal; color:var(--ink); }
-  button.theme { all:unset; cursor:pointer; color:var(--soft); font-size:12px; }
-  button.theme:hover, button.theme:focus-visible { color:var(--ink); }
-  @media (max-width: 560px) { .stage { aspect-ratio: 1/1; } .stats { grid-template-columns: repeat(2, 1fr); } }
-</style>
+<link rel="stylesheet" href="../../kit/page.css">
 </head>
 <body>
 <main>
   <header>
-    <div class="mark"><i></i>cubewright</div>
+    <a class="mark" href="../../"><i></i>cubewright</a>
     <button class="theme" id="theme" aria-label="Toggle theme">theme</button>
   </header>
   <h1><span class="no">01 </span>Token bucket</h1>
@@ -58,184 +30,69 @@
   </footer>
 </main>
 <script src="../../kit/cubewright.js"></script>
+<script src="../../kit/parts.js"></script>
 <script>
-const { part, scene, follow, loop } = Cubewright;
-const canvas = document.getElementById("c");
-const tip = document.getElementById("tip");
-const out = { tokens: s("s-tokens"), rate: s("s-rate"), pass: s("s-pass"), drop: s("s-drop") };
-function s(id) { return document.getElementById(id); }
-const isDark = () => {
-  const t = document.documentElement.dataset.theme;
-  return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-};
-const S = scene(canvas, { theme: isDark() ? "dark" : "light", pad: 0.06 });
+const { machine, part } = Cubewright;
 
-const M = { cap: 8, rate: 1.5, level: 5, passed: 0, dropped: 0 };
-const GATE_X = 17, BELT_Y = 14, EXIT_X = 38;
+machine({
+  stats: {
+    "s-tokens": (m) => m.level.toFixed(1),
+    "s-rate": (m) => m.rate.toFixed(1),
+    "s-pass": (m) => m.passed,
+    "s-drop": (m) => m.dropped,
+  },
 
-const base = S.add(part("base", "Bench"));
-base.box(0, 0, 0, 44, 22, 1, "floor");
-for (const [x, y] of [[1, 1], [41, 1], [1, 19], [41, 19]]) base.box(x, y, -1, 2, 2, 1, "frame");
+  build(W) {
+    const m = { cap: 8, rate: 1.5, level: 5, passed: 0, dropped: 0, pending: 0, clock: 6 };
 
-const tower = S.add(part("tower", "Bucket · holds up to 8 tokens"));
-tower.box(15, 5, 1, 8, 8, 1, "base");
-for (const [x, y] of [[15, 5], [22, 5], [15, 12], [22, 12]]) tower.box(x, y, 2, 1, 1, 17, "mid");
-tower.box(15, 5, 19, 8, 1, 1, "mid"); tower.box(15, 12, 19, 8, 1, 1, "mid");
-tower.box(15, 6, 19, 1, 6, 1, "mid"); tower.box(22, 6, 19, 1, 6, 1, "mid");
-const scale = S.add(part("scale", "Level marks · one per token"));
-for (let i = 0; i < M.cap; i++) scale.set(14, 12, 2 + 2 * i, "frame");
+    W.bench({ w: 44, d: 22 });
+    W.cage({ x: 15, y: 5, w: 8, d: 8, h: 18, info: "Bucket · holds up to 8 tokens" });
+    W.marks({ x: 14, y: 12, z: 2, count: m.cap, info: "Level marks · one per token" });
+    W.S.add(part("tap", "Refill tap · adds tokens at the set rate")).box(16, 6, 20, 6, 6, 1, "hi").box(17, 7, 21, 4, 4, 1, "hi");
+    m.dial = W.dial({ x: 17, y: 7, z: 22, info: "Refill dial · one turn per token" });
+    m.tokens = W.stack({ x: 17, y: 7, z: 2, cap: m.cap, dropFrom: 19, info: "Token · one request's permission" });
+    m.tokens.fill(Math.floor(m.level));
 
-const tap = S.add(part("tap", "Refill tap · adds tokens at the set rate"));
-tap.box(16, 6, 20, 6, 6, 1, "hi");
-tap.box(17, 7, 21, 4, 4, 2, "hi");
-const tick = S.add(part("tick", ""));
-tick.set(0, 0, 0, "accent");
+    m.belt = W.belt({ y: 14, length: 44, stopAt: 24, info: "Belt · incoming requests" });
+    W.arch({ x: 24, y: 13, span: 6, h: 6, info: "Gate · passes only with a token" });
+    m.ok = W.lamp({ x: 24, y: 15, z: 9, tone: "ok", info: "Pass signal" });
+    m.bad = W.lamp({ x: 24, y: 17, z: 9, tone: "bad", info: "Reject signal" });
+    m.tray = W.bin({ x: 20, y: 19, w: 9, d: 3, h: 2, info: "Rejected · HTTP 429" });
+    m.served = W.bin({ x: 36, y: 12, w: 7, d: 8, h: 4, info: "Served" });
 
-const belt = S.add(part("belt", "Belt · incoming requests"));
-let beltPhase = 0;
-function buildBelt() {
-  belt.clear();
-  const o = Math.floor(beltPhase) % 6;
-  for (let x = 0; x < 44; x++) belt.box(x, BELT_Y, 1, 1, 4, 1, (x + 6 - o) % 6 === 0 ? "frame" : "base");
-}
+    m.belt.onArrive = (it) => {
+      m.belt.take(it);
+      if (m.level >= 1) {
+        m.level -= 1; m.passed++;
+        m.ok.flash();
+        m.tokens.pop([17, 11, 6]);
+        W.slide(it, [38, 14.5, 2], { rate: 4, then: () => m.served.receive(it) });
+      } else {
+        m.dropped++;
+        m.bad.flash();
+        m.tray.receive(it);
+      }
+    };
+    return m;
+  },
 
-const gate = S.add(part("gate", "Gate · passes only with a token"));
-gate.box(GATE_X + 7, BELT_Y - 1, 2, 1, 1, 6, "mid"); gate.box(GATE_X + 7, BELT_Y + 4, 2, 1, 1, 6, "mid");
-gate.box(GATE_X + 7, BELT_Y - 1, 8, 1, 6, 1, "mid");
-const okLamp = S.add(part("ok", "Pass signal")); okLamp.box(GATE_X + 7, BELT_Y + 1, 9, 1, 1, 1, "ok");
-const badLamp = S.add(part("bad", "Reject signal")); badLamp.box(GATE_X + 7, BELT_Y + 3, 9, 1, 1, 1, "bad");
+  update(dt, m, W) {
+    m.level = Math.min(m.cap, m.level + m.rate * dt);
+    while (m.tokens.count < Math.floor(m.level)) m.tokens.push();
+    m.dial.set(m.level >= m.cap ? 0 : m.level % 1);
 
-const tray = S.add(part("tray", "Rejected · HTTP 429"));
-tray.shell(20, 19, 1, 9, 3, 2, "base");
-const bin = S.add(part("bin", "Served"));
-bin.shell(36, 12, 1, 7, 8, 4, "base");
+    m.clock -= dt;
+    if (Math.random() < dt * 1.1) m.pending++;
+    if (m.clock <= 0) { m.pending += 7; m.clock = 9 + Math.random() * 4; }
+    if (m.pending > 0 && m.belt.ready()) { m.belt.send(W.item({ info: "Request" })); m.pending--; }
+  },
 
-const tokens = [];
-function addToken(fromTop) {
-  const t = S.add(part("token", "Token · one request's permission"));
-  t.box(0, 0, 0, 4, 4, 1, "accent");
-  t.at = [17, 7, fromTop ? 19 : 2 + 2 * tokens.length];
-  t.vz = 0;
-  tokens.push(t);
-}
-for (let i = 0; i < Math.floor(M.level); i++) addToken(false);
-
-const spent = [];
-const requests = [];
-let pending = 0, burstClock = 6;
-function spawn() {
-  const r = S.add(part("request", "Request"));
-  r.box(0, 0, 0, 3, 3, 3, "hi");
-  r.at = [0, BELT_Y + 0.5, 2];
-  r.state = "ride";
-  requests.push(r);
-}
-
-S.fit();
-buildBelt();
-
-function decide(r) {
-  if (M.level >= 1) {
-    M.level -= 1; M.passed++;
-    r.state = "pass";
-    okLamp.glow = 1;
-    const t = tokens.shift();
-    if (t) { t.pickable = false; spent.push(t); }
-  } else {
-    M.dropped++;
-    r.state = "reject";
-    badLamp.glow = 1;
-  }
-}
-
-function update(dt) {
-  M.level = Math.min(M.cap, M.level + M.rate * dt);
-  while (tokens.length < Math.floor(M.level)) addToken(true);
-
-  tokens.forEach((t, i) => {
-    const z = 2 + 2 * i;
-    if (t.at[2] > z) { t.vz -= 60 * dt; t.at[2] = Math.max(z, t.at[2] + t.vz * dt); }
-    if (t.at[2] <= z) { t.at[2] = z; t.vz = 0; }
-  });
-  for (const t of spent.slice()) {
-    t.at[1] = follow(t.at[1], 15, dt, 6);
-    t.at[2] = follow(t.at[2], 6, dt, 6);
-    t.scale = Math.max(0, t.scale - dt * 1.6);
-    if (t.scale <= 0) { S.remove(t); spent.splice(spent.indexOf(t), 1); }
-  }
-
-  burstClock -= dt;
-  if (Math.random() < dt * 1.1) pending++;
-  if (burstClock <= 0) { pending += 7; burstClock = 9 + Math.random() * 4; }
-  const last = requests.filter((r) => r.state === "ride").at(-1);
-  if (pending > 0 && (!last || last.at[0] > 4)) { spawn(); pending--; }
-
-  const speed = 9;
-  beltPhase += speed * dt;
-  buildBelt();
-  for (const r of requests.slice()) {
-    if (r.state === "ride") {
-      const ahead = requests.filter((o) => o !== r && o.state === "ride" && o.at[0] > r.at[0]);
-      const block = ahead.length ? Math.min(...ahead.map((o) => o.at[0])) - 4 : Infinity;
-      r.at[0] = Math.min(r.at[0] + speed * dt, block);
-      if (r.at[0] >= GATE_X + 4) { r.at[0] = GATE_X + 4; decide(r); }
-    } else if (r.state === "pass") {
-      r.at[0] += speed * dt;
-      if (r.at[0] > EXIT_X - 1) { r.at[2] -= 12 * dt; r.alpha -= dt * 2.5; }
-      if (r.alpha <= 0) { S.remove(r); requests.splice(requests.indexOf(r), 1); }
-    } else {
-      r.at[1] = follow(r.at[1], 19, dt, 7);
-      r.at[2] = follow(r.at[2], 1.4, dt, 5);
-      r.life = (r.life || 0) + dt;
-      if (r.life > 1.4) r.alpha -= dt * 1.5;
-      if (r.alpha <= 0) { S.remove(r); requests.splice(requests.indexOf(r), 1); }
-    }
-  }
-
-  const phase = M.level >= M.cap ? 0 : M.level % 1;
-  const ring = [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [0, 3], [0, 2], [0, 1]];
-  const [kx, ky] = ring[Math.floor(phase * ring.length) % ring.length];
-  tick.at = [17 + kx, 7 + ky, 23];
-  okLamp.glow = Math.max(0, okLamp.glow - dt * 2.5);
-  badLamp.glow = Math.max(0, badLamp.glow - dt * 2.5);
-  S.step(dt);
-}
-
-function render() {
-  out.tokens.textContent = M.level.toFixed(1);
-  out.rate.textContent = M.rate.toFixed(1);
-  out.pass.textContent = M.passed;
-  out.drop.textContent = M.dropped;
-  S.draw();
-}
-
-const L = loop(canvas, (dt) => { update(dt); render(); });
-if (L.still) render();
-
-canvas.addEventListener("pointermove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  const x = e.clientX - r.left, y = e.clientY - r.top;
-  const p = S.pick(x, y);
-  S.hover = p;
-  if (p) { tip.textContent = p.info; tip.style.left = x + "px"; tip.style.top = y + "px"; }
-  tip.classList.toggle("on", !!p);
-  if (L.still) render();
+  actions: {
+    stress: (m) => { m.pending += 5; m.clock = 10; },
+    up: (m) => { m.rate = Math.min(4, m.rate + 0.5); },
+    down: (m) => { m.rate = Math.max(0.5, m.rate - 0.5); },
+  },
 });
-canvas.addEventListener("pointerleave", () => { S.hover = null; tip.classList.remove("on"); });
-canvas.addEventListener("click", () => { pending += 5; burstClock = 10; L.kick(); });
-function setTheme(next) { document.documentElement.dataset.theme = next; S.theme = next; L.kick(); if (L.still) render(); }
-document.getElementById("theme").addEventListener("click", () => setTheme(S.theme === "dark" ? "light" : "dark"));
-canvas.addEventListener("keydown", (e) => {
-  if (e.key === " " || e.key === "Enter") { pending += 5; burstClock = 10; }
-  else if (e.key === "ArrowUp") M.rate = Math.min(4, M.rate + 0.5);
-  else if (e.key === "ArrowDown") M.rate = Math.max(0.5, M.rate - 0.5);
-  else if (e.key === "ArrowLeft") S.turn(-1);
-  else if (e.key === "ArrowRight") S.turn(1);
-  else if (e.key.toLowerCase() === "t") setTheme(S.theme === "dark" ? "light" : "dark");
-  else return;
-  e.preventDefault(); L.kick();
-});
-document.addEventListener("keydown", (e) => { if (e.target === document.body && e.key.startsWith("Arrow")) canvas.focus(); });
 </script>
 </body>
 </html>
