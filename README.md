@@ -2,6 +2,8 @@
 
 **Ideas, built as little cube machines you can play with.**
 
+**▶ Play them: [thembatman0.github.io/cubewright](https://thembatman0.github.io/cubewright/)**
+
 Cubewright is an agent skill (Claude Code and other agents that read `SKILL.md`). You ask it to explain a concept, and it builds a small, working voxel machine that shows the idea and lets you push it until it breaks. The output is one self-contained HTML page.
 
 > *"How does a rate limiter work?"* A tap drips tokens into a tower. Requests ride a belt and must grab a token to pass the gate. Click to flood it and watch the rejects pile up.
